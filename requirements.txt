@@ -1,0 +1,18 @@
+# Core Python Modules
+calendar
+datetime
+time
+
+# Data Manipulation Libraries
+pandas==2.0.1
+
+
+# Interactive Data Visualization Libraries
+plotly==5.14.1
+
+# Web Application Framework
+streamlit==1.25.0
+streamlit-aggrid==0.3.4.post3
+streamlit-autorefresh==1.0.1
+streamlit-modal==0.1.0
+streamlit-option-menu==0.3.2
