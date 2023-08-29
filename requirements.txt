@@ -1,8 +1,3 @@
-# Core Python Modules
-calendar
-datetime
-time
-
 # Data Manipulation Libraries
 pandas==2.0.1
 
