@@ -7,6 +7,7 @@ from streamlit_option_menu import option_menu  # pip install streamlit-option-me
 from st_aggrid import AgGrid
 from st_aggrid.grid_options_builder import GridOptionsBuilder
 from streamlit_autorefresh import st_autorefresh
+import io
 
 trash_icon_html = """
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
@@ -115,14 +116,6 @@ def remove(df, column_name, values_to_remove):
     df_filtered = df[~df[column_name].isin(values_to_remove)]
     st.session_state['df_result'] = df_filtered
 
-
-import io
-import pandas as pd
-import xlsxwriter
-
-import io
-import pandas as pd
-import xlsxwriter
 
 def processar_arquivo(df_result):
     output = io.BytesIO()
