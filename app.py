@@ -58,6 +58,18 @@ def determinar_categoria_imc(imc):
         return "Obesidade Grau III"
 
 
+def idGeneration(id_number):
+    agora = datetime.now()
+    hora_formatada = agora.strftime("%H%M%S")
+
+    if id_number:
+        id_gerado = id_number + hora_formatada
+    else:
+        id_gerado = hora_formatada
+
+    return id_gerado
+
+
 def onAddRow(id_number, data, altura, idade_paciente, peso_paciente, ctdi, dlp, protocolo):
     imc_paciente = peso / (float(altura) * float(altura))
     # st.write(imc_paciente)
@@ -116,6 +128,19 @@ def remove(df, column_name, values_to_remove):
     df_filtered = df[~df[column_name].isin(values_to_remove)]
     st.session_state['df_result'] = df_filtered
 
+def verifydot(valor):
+    novo_valor = valor.replace(',', '.')
+    return novo_valor
+
+def processar_arquivo_cru(df_result):
+    output = io.BytesIO()
+    agora = datetime.now()
+    data_formatada = agora.strftime("%d%m%Y")
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        sheet_name = 'dados_' + str(data_formatada)
+        df_result.to_excel(writer, sheet_name=f'{sheet_name}_percentis', startrow=0, index=False)
+    output.seek(0)
+    return output
 
 def processar_arquivo(df_result):
     output = io.BytesIO()
@@ -270,7 +295,7 @@ if selected == "Processar Amostras":
 
                 # Receber um número de ponto flutuante para DLP
                 flag_dlp = True
-                dlp_input = st.text_input("Digite um número de ponto flutuante para DLP ")
+                dlp_input = st.text_input("Digite o valor de  DLP ")
                 try:
                     if dlp_input:
                         float_dlp = float(dlp_input)
@@ -299,7 +324,7 @@ if selected == "Processar Amostras":
                     flag_peso = True
 
                 # Receber um número de ponto flutuante para CTDI
-                ctdi_input = st.text_input("Digite um número de ponto flutuante para CTDI")
+                ctdi_input = st.text_input("Digite o valor de CTDI")
                 flag_ctdi = True
                 try:
                     if ctdi_input:
@@ -348,10 +373,12 @@ if selected == "Processar Amostras":
             classe_estilo4 = "color-red"
             classe_estilo5 = "color-red"
             classe_estilo6 = "color-red"
+            podegerar = False
             try:
                 if 'contagem_imc' in st.session_state:
                     text1 = "Abaixo do peso: " + str(st.session_state['contagem_imc']['Abaixo do peso']) + '/30'
-                if st.session_state['contagem_imc']['Abaixo do peso'] >= 5:
+                if st.session_state['contagem_imc']['Abaixo do peso'] >= 30:
+                    podegerar= True
                     classe_estilo1 = "color-green"
             except KeyError as e:
                 text1 = "Abaixo do peso: 0/30"
@@ -408,28 +435,12 @@ if selected == "Processar Amostras":
             clicked = st.form_submit_button("Adicionar dado", use_container_width=True, on_click=None)
             # Verificar se algum item atingiu 30 e habilitar o botão
             st.session_state['contagem_imc'] = st.session_state['df_result']['imc_paciente_categoria'].value_counts()
-            if ('contagem_imc' in st.session_state and
-                    ('Abaixo do peso' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
-                        'Abaixo do peso'] >= 5) or
-                    ('Peso normal' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
-                        'Peso normal'] >= 30) or
-                    ('Sobrepeso' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
-                        'Sobrepeso'] >= 30) or
-                    ('Obesidade Grau I' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
-                        'Obesidade Grau I'] >= 30) or
-                    ('Obesidade Grau II' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
-                        'Obesidade Grau II'] >= 30) or
-                    ('Obesidade Grau III' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
-                        'Obesidade Grau III'] >= 30)):
 
-                button_relatorio = False
-            else:
-                button_relatorio = True
 
 
             if clicked and not (
-                    flag_id or flag_idade or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
-                onAddRow(id_input, initial_date, altura_input, idade_input, peso_input, float_ctdi, dlp_input,
+                    flag_idade or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
+                onAddRow(idGeneration(id_input), initial_date, verifydot(altura_input), idade_input, verifydot(peso_input), float_ctdi, dlp_input,
                          opcao_protocolo)
                 st.session_state['contagem_imc'] = st.session_state['df_result'][
                     'imc_paciente_categoria'].value_counts()
@@ -483,13 +494,12 @@ if selected == "Processar Amostras":
 
         # Exibir o DataFrame
 
-        if clicked and (flag_id or flag_idade or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
+        if clicked and (flag_idade or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
             st.toast('Erro! Veirifique os dados inseridos', icon='🗣️')
-        if clicked and not (flag_id or flag_idade or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
+        if clicked and not (flag_idade or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
             st.toast('Novo dado adicionado com sucesso!', icon='😍')
             time.sleep(1)
             st_autorefresh(interval=100, key="countrefresh")
-    st.download_button('Download CSV', data=processar_arquivo(st.session_state['df_result']), file_name='resultados.xlsx')
 # --- PLOT PERIODS ---
 if selected == "Dados Inseridos":
 
@@ -535,4 +545,31 @@ if selected == "Dados Inseridos":
         if st.button('Excluir', disabled=button_delete, key='excluir_button', use_container_width=True):
             remove(st.session_state['df_result'], 'codigo_exame', system_name)
             st_autorefresh(interval=100, key="dataframerefresh")
+
+        if ('contagem_imc' in st.session_state and
+                ('Abaixo do peso' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Abaixo do peso'] >= 30) or
+                ('Peso normal' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Peso normal'] >= 30) or
+                    ('Sobrepeso' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Sobrepeso'] >= 30) or
+                    ('Obesidade Grau I' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Obesidade Grau I'] >= 30) or
+                    ('Obesidade Grau II' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Obesidade Grau II'] >= 30) or
+                    ('Obesidade Grau III' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Obesidade Grau III'] >= 30)):
+
+            button_relatorio = False
+        else:
+            button_relatorio = True
+
+
+        st.download_button('Baixar dados', data=processar_arquivo_cru(st.session_state['df_result']),
+                           file_name='tabela_dados.xlsx', use_container_width=True,  disabled=False)
+
+        st.download_button('Baixar dados processados', data=processar_arquivo(st.session_state['df_result']),
+                           file_name='dados_processados.xlsx', use_container_width=True,  disabled=button_relatorio)
+
+
 
