@@ -2,13 +2,10 @@ import calendar  # Core Python Module
 from datetime import datetime  # Core Python Module
 import time
 import pandas as pd
-
-import plotly.graph_objects as go  # pip install plotly
 import streamlit as st  # pip install streamlit
 from streamlit_option_menu import option_menu  # pip install streamlit-option-menu
 from st_aggrid import AgGrid
 from st_aggrid.grid_options_builder import GridOptionsBuilder
-from st_aggrid import ColumnsAutoSizeMode
 from streamlit_autorefresh import st_autorefresh
 
 trash_icon_html = """
@@ -36,23 +33,44 @@ document.getElementById("trash-icon").addEventListener("click", function() {
 # Criar um DataFrame vazio com as colunas desejadas
 if "button_clicked" not in st.session_state:
     st.session_state.button_clicked = False
-    
-if "df_result" not in st.session_state:
-    st.session_state['df_result'] = pd.DataFrame(columns=['data', 'ctdi', 'dlp'])
 
-def onAddRow(id_number, data, altura, idade_paciente, peso_paciente,ctdi, dlp, protocolo):
-    imc_paciente = peso/(float(altura)*float(altura))
-    #st.write(imc_paciente)
-    
+if "df_result" not in st.session_state:
+    st.session_state['df_result'] = df_result = pd.DataFrame(columns=['codigo_exame', 'data', 'idade_paciente',
+                                                                      'peso_paciente', 'altura_paciente',
+                                                                      'imc_paciente',
+                                                                      'imc_paciente_categoria', 'ctdi', 'dlp',
+                                                                      'protocolo'])
+
+
+def determinar_categoria_imc(imc):
+    if imc < 18.5:
+        return "Abaixo do peso"
+    elif 18.5 <= imc < 24.9:
+        return "Peso normal"
+    elif 25 <= imc < 29.9:
+        return "Sobrepeso"
+    elif 30 <= imc < 34.9:
+        return "Obesidade Grau I"
+    elif 35 <= imc < 39.9:
+        return "Obesidade Grau II"
+    else:
+        return "Obesidade Grau III"
+
+
+def onAddRow(id_number, data, altura, idade_paciente, peso_paciente, ctdi, dlp, protocolo):
+    imc_paciente = peso / (float(altura) * float(altura))
+    # st.write(imc_paciente)
+
     data = pd.DataFrame({'codigo_exame': [id_number],
                          'data': [data],
                          'idade_paciente': [idade_paciente],
                          'peso_paciente': [peso_paciente],
                          'altura_paciente': [altura],
                          'imc_paciente': [imc_paciente],
-                         'ctdi': [ctdi], 
-                         'dlp': [dlp],
-                         'protocolo': [protocolo],      
+                         'imc_paciente_categoria': [determinar_categoria_imc(imc_paciente)],
+                         'ctdi': [float(ctdi)],
+                         'dlp': [float(dlp)],
+                         'protocolo': [protocolo],
                          })
 
     st.session_state['df_result'] = pd.concat([st.session_state['df_result'], data], ignore_index=True)
@@ -65,10 +83,12 @@ def process_excel_file(file):
         # Faça o processamento adicional do DataFrame se necessário
         st.dataframe(df)  # Exibe o DataFrame na interface
 
+
 def is_valid_excel_file(file):
     if file is not None and file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
         return True
     return False
+
 
 def formatar_data(data):
     if data is not None:
@@ -76,20 +96,62 @@ def formatar_data(data):
         return data_formatada
     return ""
 
+
 # Função de callback para a mudança de data
 def on_date_change(date):
     st.write("Data selecionada:", formatar_data(date))
-#import database as db  # local import
+
+
+# import database as db  # local import
 # Definir estilo do container
 
 def clear_cache():
     keys = list(st.session_state.keys())
     for key in keys:
         st.session_state.pop(key)
+
+
 def remove(df, column_name, values_to_remove):
     df_filtered = df[~df[column_name].isin(values_to_remove)]
     st.session_state['df_result'] = df_filtered
 
+
+import io
+import pandas as pd
+import xlsxwriter
+
+import io
+import pandas as pd
+import xlsxwriter
+
+def processar_arquivo(df_result):
+    output = io.BytesIO()
+
+    if 'contagem_imc' in st.session_state:
+        contagem_imc = st.session_state['contagem_imc']
+
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            for categoria, quantidade in contagem_imc.items():
+                if quantidade >= 5:
+                    df_categoria = df_result[df_result['imc_paciente_categoria'] == categoria]
+
+                    percentil_50_ctdi = df_categoria['ctdi'].quantile(0.5)
+                    percentil_75_ctdi = df_categoria['ctdi'].quantile(0.75)
+                    percentil_50_dlp = df_categoria['dlp'].quantile(0.5)
+                    percentil_75_dlp = df_categoria['dlp'].quantile(0.75)
+
+                    percentis = pd.DataFrame({
+                        'Descrição': ['Percentil 50 - CTDI', 'Percentil 75 - CTDI', 'Percentil 50 - DLP', 'Percentil 75 - DLP'],
+                        'Valor': [percentil_50_ctdi, percentil_75_ctdi, percentil_50_dlp, percentil_75_dlp]
+                    })
+
+                    sheet_name = categoria
+
+                    df_categoria.to_excel(writer, sheet_name=f'{sheet_name}_percentis', startrow=0, index=False)
+                    percentis.to_excel(writer, sheet_name=f'{sheet_name}_percentis', startrow=df_categoria.shape[0] + 5, index=False)
+
+    output.seek(0)
+    return output
 
 
 
@@ -103,7 +165,8 @@ layout = "centered"
 # --------------------------------------
 
 st.set_page_config(page_title=page_title, page_icon=page_icon, layout=layout)
-st.markdown('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">', unsafe_allow_html=True)
+st.markdown('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">',
+            unsafe_allow_html=True)
 st.markdown(
     """
     <style >
@@ -137,11 +200,9 @@ header_content = """
 # Mostrar o cabeçalho
 spacer.markdown(header_content, unsafe_allow_html=True)
 
-
 # --- DROP DOWN VALUES FOR SELECTING THE PERIOD ---
 years = [datetime.today().year, datetime.today().year + 1]
 months = list(calendar.month_name[1:])
-
 
 # --- DATABASE INTERFACE ---
 # Incluir o CSS personalizado para ocultar o elemento
@@ -164,8 +225,6 @@ selected = option_menu(
     menu_icon="cast", default_index=0, orientation="horizontal"
 )
 
-
-
 # --- INPUT & SAVE PERIODS ---
 if selected == "Processar Amostras":
     with st.container():
@@ -177,9 +236,20 @@ if selected == "Processar Amostras":
             """,
             unsafe_allow_html=True
         )
+        # Define o conteúdo do aviso
+        aviso = """
+        📢 Aviso: Coleta de Dados 📊\n
+        Lembrando que a categoria será incluída no processo de análise somente quando a categoria estiver com 
+        pelo menos 30 amostras.
+        """
+
+        # Adiciona o aviso ao componente st.info
+        st.info(aviso)
         with st.form("form_manual_data", clear_on_submit=True):
+
             flag_id = True
-            id_input = st.text_input("Código do exame:", placeholder="Para gerar automaticamente deixe em branco", disabled=False)
+            id_input = st.text_input("Código do exame:", placeholder="Para gerar automaticamente deixe em branco",
+                                     disabled=False)
             try:
                 if id_input:
                     id = int(id_input)
@@ -187,21 +257,17 @@ if selected == "Processar Amostras":
             except:
                 lag_id = True
 
-            
             col1, col2 = st.columns(2)
 
             with col1:
-                
-                
-                
+
                 # Receber idade, peso, altura, identificação da amostra
                 # Receber uma data
                 initial_date = st.date_input("Selecione uma data", value=None)
 
-
                 # Receber um número de ponto flutuante para DLP
                 flag_altura = True
-                altura_input = st.text_input("Digite a altura do paciente ",placeholder="Insira em metros")
+                altura_input = st.text_input("Digite a altura do paciente ", placeholder="Insira em metros")
                 try:
                     if altura_input:
                         flag_altura = float(altura_input)
@@ -239,7 +305,6 @@ if selected == "Processar Amostras":
                 except:
                     flag_peso = True
 
-
                 # Receber um número de ponto flutuante para CTDI
                 ctdi_input = st.text_input("Digite um número de ponto flutuante para CTDI")
                 flag_ctdi = True
@@ -250,120 +315,231 @@ if selected == "Processar Amostras":
                 except:
                     flag_ctdi = True
 
+            opcao_protocolo = st.selectbox('Qual protcolo do registro?', (
+                'Selecione um protocolo',
+                'Crânio: Crânio cefaleia',
+                'Crânio: Crânio trauma',
+                'Crânio: Crânio avc',
+                'Seios da Face : Sinusite',
+                'Coluna Cervical',
+                'Coluna Torácica',
+                'Coluna Lombar',
+                'Abdome total: Apendicite',
+                'Abdome total: Cálculo Renal',
+                'Abdome total: Dor Abdominal',
+                'Abdome total: Apendicite',
+                'Tórax: Câncer',
+                'Tórax: Pneumonia',
+                'Tórax: Covid',
 
-            
-
-            opcao_protocolo = st.selectbox('Qual protcolo do registro?',(
-                                                                'Selecione um protocolo',
-                                                                'Crânio: Crânio cefaleia',
-                                                                  'Crânio: Crânio trauma', 
-                                                                  'Crânio: Crânio avc', 
-                                                                  'Seios da Face : Sinusite',
-                                                                  'Coluna Cervical',
-                                                                  'Coluna Torácica',
-                                                                  'Coluna Lombar',
-                                                                  'Abdome total: Apendicite',
-                                                                 'Abdome total: Cálculo Renal',
-                                                                 'Abdome total: Dor Abdominal',
-                                                                 'Abdome total: Apendicite',
-                                                                 'Tórax: Câncer',
-                                                                 'Tórax: Pneumonia',
-                                                                 'Tórax: Covid',
-
-                                                                 ))
+            ))
             if opcao_protocolo == "Selecione um protocolo":
                 flag_opcao = True
             else:
                 flag_opcao = False
-            
-
 
             # Centralizar o botão de envio usando CSS
             # Verificar se o botão de envio foi pressionado
             # Criar uma coluna centralizada
+            # Defina a condição (por exemplo, valor maior que 10)
+            text1 = "Abaixo do peso: 0/30"
+            text2 = "Peso normal: 0/30"
+            text3 = "Sobrepeso: 0/30"
+            text4 = "Obesidade Grau I: 0/30"
+            text5 = "Obesidade Grau II: 0/30"
+            text6 = "Obesidade Grau III: 0/30"
 
-            clicked = st.form_submit_button("Adicionar dado", use_container_width = True, on_click=None)
-            if clicked and not (flag_id or flag_idade  or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
-                onAddRow(id_input, initial_date, altura_input, idade_input, peso_input,float_ctdi, dlp_input, opcao_protocolo)
+            classe_estilo1 = "color-red"
+            classe_estilo2 = "color-red"
+            classe_estilo3 = "color-red"
+            classe_estilo4 = "color-red"
+            classe_estilo5 = "color-red"
+            classe_estilo6 = "color-red"
+            try:
+                if 'contagem_imc' in st.session_state:
+                    text1 = "Abaixo do peso: " + str(st.session_state['contagem_imc']['Abaixo do peso']) + '/30'
+                if st.session_state['contagem_imc']['Abaixo do peso'] >= 5:
+                    classe_estilo1 = "color-green"
+            except KeyError as e:
+                text1 = "Abaixo do peso: 0/30"
+
+            try:
+                if 'contagem_imc' in st.session_state:
+                    text2 = "Peso normal: " + str(st.session_state['contagem_imc']['Peso normal']) + '/30'
+                if st.session_state['contagem_imc']['Peso normal'] >= 30:
+                    classe_estilo2 = "color-green"
+            except KeyError as e:
+                text2 = "Peso normal: 0/30"
+
+            try:
+                if 'contagem_imc' in st.session_state:
+                    text3 = "Sobrepeso: " + str(st.session_state['contagem_imc']['Sobrepeso']) + '/30'
+                if st.session_state['contagem_imc']['Sobrepeso'] >= 30:
+                    classe_estilo3 = "color-green"
+            except KeyError as e:
+                text3 = "Sobrepeso: 0/30"
+
+            try:
+                if 'contagem_imc' in st.session_state:
+                    text4 = "Obesidade Grau I: " + str(st.session_state['contagem_imc']['Obesidade Grau I']) + '/30'
+                    if st.session_state['contagem_imc']['Obesidade Grau I'] >= 30:
+                        classe_estilo4 = "color-green"
+            except KeyError as e:
+                text4 = "Obesidade Grau I: 0/30"
+
+            try:
+                if 'contagem_imc' in st.session_state:
+                    text5 = "Obesidade Grau II: " + str(
+                        st.session_state['contagem_imc']['Obesidade Grau II']) + '/30'
+                if st.session_state['contagem_imc']['Obesidade Grau II'] >= 30:
+                    classe_estilo5 = "color-green"
+            except KeyError as e:
+                text5 = "Obesidade Grau II: 0/30"
+
+            try:
+                if 'contagem_imc' in st.session_state:
+                    text6 = "Obesidade Grau III: " + str(
+                        st.session_state['contagem_imc']['Obesidade Grau III']) + '/30'
+                if st.session_state['contagem_imc']['Obesidade Grau III'] >= 30:
+                    classe_estilo6 = "color-green"
+
+            except KeyError as e:
+                text6 = "Obesidade Grau III: 0/30"
+            st.write(f'<div class="{classe_estilo1}">{text1}</div>', unsafe_allow_html=True)
+            st.write(f'<div class="{classe_estilo2}">{text2}', unsafe_allow_html=True)
+            st.write(f'<div class="{classe_estilo3}">{text3}', unsafe_allow_html=True)
+            st.write(f'<div class="{classe_estilo4}">{text4}', unsafe_allow_html=True)
+            st.write(f'<div class="{classe_estilo5}">{text5}', unsafe_allow_html=True)
+            st.write(f'<div class="{classe_estilo6}">{text6}', unsafe_allow_html=True)
+            st.write(f'', unsafe_allow_html=True)
+            clicked = st.form_submit_button("Adicionar dado", use_container_width=True, on_click=None)
+            # Verificar se algum item atingiu 30 e habilitar o botão
+            st.session_state['contagem_imc'] = st.session_state['df_result']['imc_paciente_categoria'].value_counts()
+            if ('contagem_imc' in st.session_state and
+                    ('Abaixo do peso' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Abaixo do peso'] >= 5) or
+                    ('Peso normal' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Peso normal'] >= 30) or
+                    ('Sobrepeso' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Sobrepeso'] >= 30) or
+                    ('Obesidade Grau I' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Obesidade Grau I'] >= 30) or
+                    ('Obesidade Grau II' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Obesidade Grau II'] >= 30) or
+                    ('Obesidade Grau III' in st.session_state['contagem_imc'] and st.session_state['contagem_imc'][
+                        'Obesidade Grau III'] >= 30)):
+
+                button_relatorio = False
+            else:
+                button_relatorio = True
+
+
+            if clicked and not (
+                    flag_id or flag_idade or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
+                onAddRow(id_input, initial_date, altura_input, idade_input, peso_input, float_ctdi, dlp_input,
+                         opcao_protocolo)
+                st.session_state['contagem_imc'] = st.session_state['df_result'][
+                    'imc_paciente_categoria'].value_counts()
+
+            with st.container():
+                st.markdown(
+                    """
+                    <style>
+                        .color-red {
+                            color: red;
+                            font-family: monospace;
+                            font-size: 0.9em; /* Ajuste o tamanho da fonte conforme necessário */
+                            letter-spacing: -0.7px; /* Ajuste o espaçamento entre as letras conforme necessário */
+                            margin-top: 0.5em;
+                            margin-bottom = 2.0em;
+                        }
+                        .color-green {
+                            color: rgb(0, 128, 0);
+                            font-family: monospace;
+                            font-size: 0.9em; /* Ajuste o tamanho da fonte conforme necessário */
+                            letter-spacing: -0.7px; /* Ajuste o espaçamento entre as letras conforme necessário */
+                            margin-top: 0.5em;
+                            margin-bottom = 2.0em;
+                        }
+                        .color-green-w{
+                            color: rgb(57, 98, 133);
+                            font-family: monospace;
+                            font-size: 0.9em; /* Ajuste o tamanho da fonte conforme necessário */
+                            letter-spacing: -0.7px; /* Ajuste o espaçamento entre as letras conforme necessário */
+                            margin-top: -0.5em;
+                            margin-bottom = 2.0em;
+                        }
+                        .color-green-h{
+                            color: rgb(57, 98, 133);
+                            font-family: monospace;
+                            font-size: 0.9em; /* Ajuste o tamanho da fonte conforme necessário */
+                            letter-spacing: -0.7px; /* Ajuste o espaçamento entre as letras conforme necessário */
+                            margin-top: 0.5em;
+                            margin-bottom = 7.0em;
+                        }
+
+
+                        }
+
+                    </style>
+                    """,
+                    unsafe_allow_html=True
+                )
+
             # Verificar se o botão de envio foi clicado
 
-# Exibir o DataFrame
+        # Exibir o DataFrame
 
-        progress_text = "Adicione 30 amostras para calcular o percentil."
-        my_bar = st.progress(0, text=progress_text)
-        for percent_complete in range(80):
-            total = st.session_state['df_result'].shape[0]*3 
-            if total >= 90:
-                total = 100
-            my_bar.progress(total, text=progress_text)
-            if total >= 100:
-                my_bar.empty()
-        
-        if total >= 100:
-            my_bar.empty()
-
-
-        if clicked and (flag_id or flag_idade  or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
+        if clicked and (flag_id or flag_idade or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
             st.toast('Erro! Veirifique os dados inseridos', icon='🗣️')
-        if clicked and not (flag_id or flag_idade  or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
-                st.toast('Novo dado adicionado com sucesso!', icon='😍')
-        if total >= 100:
-            time.sleep(0.3)
-            teste = st.button('Gerar relatório de Percentil', use_container_width = True, on_click =clear_cache)
-       
-            
-
-
-
-
-        
-
-
-
-
+        if clicked and not (flag_id or flag_idade or flag_dlp or flag_ctdi or flag_peso or flag_opcao or flag_altura):
+            st.toast('Novo dado adicionado com sucesso!', icon='😍')
+            time.sleep(1)
+            st_autorefresh(interval=100, key="countrefresh")
+    st.download_button('Download CSV', data=processar_arquivo(st.session_state['df_result']), file_name='resultados.xlsx')
 # --- PLOT PERIODS ---
 if selected == "Dados Inseridos":
-            
-            st.markdown(
-            """
+
+    st.markdown(
+        """
             <div style="padding: 10px; border-radius: 10px;">
                 <h3 style="color: #396285; margin: 0;">Dados Inseridos</h3>
             </div>
             """,
-            unsafe_allow_html=True
-            )
-            # Exibir o DataFrame paginado
-            gb = GridOptionsBuilder.from_dataframe(st.session_state['df_result'])
-            gb.configure_default_column(
-                resizable=True,
-            )
-            gb.configure_pagination(enabled=True,paginationAutoPageSize=False,paginationPageSize=5)
-            gb.configure_selection(selection_mode="multiple", use_checkbox=True)
-            custom_css = {".ag-header-cell-text": {"font-size": "12px", 'text-overflow': 'revert;', 'font-weight': 700},
-                          ".ag-theme-streamlit": {"display": "block"}}
-            gb.configure_grid_options(tooltipShowDelay=0)
-            gridOptions = gb.build()
-            if(len(st.session_state['df_result'])) == 0:
-                st.write("Nenhum dado adicionado")
-            else:
-                button_delete = False
-                return_value = AgGrid(st.session_state['df_result'], gridOptions=gridOptions)
-                
-                if return_value['selected_rows']:
-                    system_name = []
-                    
-                    for x in range(0, len(return_value['selected_rows'])):
-                        system_name.append(return_value['selected_rows'][x]['codigo_exame'])
-                    st.write(str(len(return_value['selected_rows']))+ " dado(s) selecinados")
-                else:
-                    st.write("Sem dados selecinados")
-                
-                if 'system_name' in locals():
-                    button_delete = False
-                else:
-                    button_delete = True
-                
-                if st.button('Excluir', disabled=button_delete, key='excluir_button', use_container_width = True):
-                    remove(st.session_state['df_result'], 'codigo_exame', system_name)
-                    st_autorefresh(interval=((100)), key="dataframerefresh")
-                    
+        unsafe_allow_html=True
+    )
+    # Exibir o DataFrame paginado
+    gb = GridOptionsBuilder.from_dataframe(st.session_state['df_result'])
+    gb.configure_default_column(
+        resizable=True,
+    )
+    gb.configure_pagination(enabled=True, paginationAutoPageSize=False, paginationPageSize=5)
+    gb.configure_selection(selection_mode="multiple", use_checkbox=True)
+    custom_css = {".ag-header-cell-text": {"font-size": "12px", 'text-overflow': 'revert;', 'font-weight': 700},
+                  ".ag-theme-streamlit": {"display": "block"}}
+    gb.configure_grid_options(tooltipShowDelay=0)
+    gridOptions = gb.build()
+    if (len(st.session_state['df_result'])) == 0:
+        st.write("Nenhum dado adicionado")
+    else:
+        button_delete = False
+        return_value = AgGrid(st.session_state['df_result'], gridOptions=gridOptions)
+
+        if return_value['selected_rows']:
+            system_name = []
+
+            for x in range(0, len(return_value['selected_rows'])):
+                system_name.append(return_value['selected_rows'][x]['codigo_exame'])
+            st.write(str(len(return_value['selected_rows'])) + " dado(s) selecinado(s)")
+        else:
+            st.write("Sem dados selecinados")
+
+        if 'system_name' in locals():
+            button_delete = False
+        else:
+            button_delete = True
+
+        if st.button('Excluir', disabled=button_delete, key='excluir_button', use_container_width=True):
+            remove(st.session_state['df_result'], 'codigo_exame', system_name)
+            st_autorefresh(interval=100, key="dataframerefresh")
+
