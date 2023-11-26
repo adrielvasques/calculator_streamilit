@@ -33,4 +33,4 @@ ctrl-c
 Got some thoughts or suggestions? Don't hesitate to reach out to me at avs@icomp.ufam.edu.br. I'd love to hear from you! 💡
 
 ## Ressources
-This project is based on: 
+This project is based on: https://github.com/Sven-Bo/streamlit-income-expense-tracker
