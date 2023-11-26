@@ -19,7 +19,7 @@ The entered data pertains to BMI (Body Mass Index) calculations. The application
 
 ## Run the app
 ```
-# Verify requirments
+# Verify requirements
 pip install -r requirements.txt
 
 # vanilla terminal
