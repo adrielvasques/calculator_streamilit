@@ -15,7 +15,7 @@ InputToXLSX is a web application designed to simplify data handling. Built with 
 The entered data pertains to BMI (Body Mass Index) calculations. The application provides a count for each BMI category based on the processed data, informing the user of the number of entries within each category. If a category has approximately 30 entries, the application will calculate the 75th percentile for that group. You can view the inputted data in an AgGrid table under the 'Dados Inseridos' tab, where you also have the option to delete an entry if necessary.
 
 ## Demo Website
-⭐ [https://share.streamlit.io/sven-bo/streamlit-income-expense-tracker/app.py](https://percentilcalculator.streamlit.app/)
+⭐ [App Demo](https://percentilcalculator.streamlit.app/)
 
 ## Run the app
 ```
