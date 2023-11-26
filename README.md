@@ -1,12 +1,11 @@
 
-# Income & Expense Tracker incl. NoSQL Database built with Streamlit
+# FormGridXLSX
 
-Have you ever wanted to keep track of your monthly income and expenses but didn't want to use Excel? How about levering the power of Python and the streamlit library to build an interactive web application? To store your monthly reports, we will use the **FREE** NoSQL Database from deta (https://deta.sh).
-To visualize the monthly spending, we will use a Sankey Chart from Plotly.
+InputToXLSX: This project involves capturing form input data, processing it, and then displaying the results in an AgGrid template. The final output is conveniently provided in an XLSX format.
 
 
 ## Video Tutorial
-[![YouTube Video](https://img.youtube.com/vi/3egaMfE9388/0.jpg)](https://youtu.be/3egaMfE9388)
+[![YouTube Video](https://img.youtube.com/vi/E3LZkOYzpOo/0.jpg)](https://www.youtube.com/watch?v=E3LZkOYzpOo)
 
 
 ## Demo Website
