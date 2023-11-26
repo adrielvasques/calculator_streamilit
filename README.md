@@ -19,16 +19,15 @@ The entered data pertains to BMI (Body Mass Index) calculations. The application
 
 ## Run the app
 ```
+# Verify requirments
+pip install -r requirements.txt
+
 # vanilla terminal
 streamlit run app.py
 
 # quit
 ctrl-c
 ```
-
-## Environment Variables
-To run this project, you will need to add the following environment variables
-`DETA_KEY`
 
 ## Feedback
 Got some thoughts or suggestions? Don't hesitate to reach out to me at avs@icomp.ufam.edu.br. I'd love to hear from you! 💡
