@@ -533,7 +533,7 @@ if selected == "Dados Inseridos":
 
             for x in range(0, len(return_value['selected_rows'])):
                 system_name.append(return_value['selected_rows'][x]['codigo_exame'])
-            st.write(str(len(return_value['selected_rows'])) + " dado(s) selecinado(s)")
+            st.write(str(len(return_value['selected_rows'])) + " dado(s) selecionado(s)")
         else:
             st.write("Sem dados selecinados")
 
